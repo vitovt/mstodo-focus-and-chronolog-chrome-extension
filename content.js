@@ -95,13 +95,16 @@
   }
 
   // Ensure we never have overlapping "working" sessions:
-  function stopOtherWorkingUIs(exceptBody) {
-    document.querySelectorAll('.taskItem-body.is-working').forEach(el => {
+  async function stopOtherWorkingUIs(exceptBody, skipIdle) {
+    const list = Array.from(document.querySelectorAll('.taskItem-body.is-working'));
+    const promises = [];
+    list.forEach(el => {
       if (el !== exceptBody) {
         // Synthetic stop for UI-only; we need to actually trigger the same logic used on click:
-        stopWorkForTask(el);
+        promises.push(stopWorkForTask(el, skipIdle));
       }
     });
+    if (promises.length) { await Promise.all(promises); }
   }
 
   // ---------- Core UI augmentation ----------
@@ -179,7 +182,7 @@
     ev.stopPropagation();
 
     // Enforce single active: if any other is-working, stop it.
-    stopOtherWorkingUIs(taskBody);
+    await stopOtherWorkingUIs(taskBody, true);
 
     if (taskBody.classList.contains('is-working')) {
       await stopWorkForTask(taskBody);
@@ -201,11 +204,11 @@
     taskBody.setAttribute('data-work-start', String(Date.now()));
   }
 
-  async function stopWorkForTask(taskBody) {
+  async function stopWorkForTask(taskBody, skipIdle) {
     const titleEl = getTitleEl(taskBody);
     if (!titleEl) {
       // still ensure Idle starts in chronolog
-      await switchSession(IDLE_LABEL);
+      if (!skipIdle) { await switchSession(IDLE_LABEL); }
       taskBody.classList.remove('is-working');
       taskBody.removeAttribute('data-work-start');
       return;
@@ -243,7 +246,7 @@
     }
 
     // Switch to Idle session
-    await switchSession(IDLE_LABEL);
+    if (!skipIdle) { await switchSession(IDLE_LABEL); }
 
     // UI unmark
     taskBody.classList.remove('is-working');
