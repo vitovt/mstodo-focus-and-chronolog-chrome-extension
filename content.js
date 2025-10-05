@@ -252,14 +252,17 @@
   }
 
   async function renameTaskThroughUI(taskBody, newTitle) {
+    // Ensure the row is selected
     const rowBtn = taskBody.querySelector('button.taskItem-titleWrapper') ||
                    taskBody.querySelector('.taskItem-titleWrapper');
     if (!rowBtn) throw new Error('Title wrapper not found');
     rowBtn.click();
 
+    // Open editor in the right pane
     const editButton = await waitForSelector('.editableContent-editButton', 2000);
     editButton.click();
 
+    // Find an editable field
     const editor = await waitForSelector('.editableContent input[type="text"], .editableContent textarea, .editableContent [contenteditable="true"]', 2000);
 
     if (editor.tagName === 'INPUT' || editor.tagName === 'TEXTAREA') {
@@ -351,8 +354,9 @@
 
       // Fallbacks: try any toolbar region that holds view buttons
       if (!listBtn) {
-        listBtn = document.querySelector('.toolbarButton, [role="toolbar"] .button');
-        if (!listBtn) return false;
+        const anyToolbarIconButton = document.querySelector('.toolbarButton, [role="toolbar"] .button');
+        if (!anyToolbarIconButton) return false;
+        listBtn = anyToolbarIconButton;
       }
 
       const container = listBtn.parentElement?.parentElement || listBtn.parentElement;
