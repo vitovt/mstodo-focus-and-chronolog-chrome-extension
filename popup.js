@@ -1,5 +1,8 @@
 const STORAGE_KEY = 'kuro.logs';
 const IDLE_LABEL = 'Idle';
+const COL_START_W = 5;
+const COL_NAME_W = 37;
+const COL_SPENT_W = 7;
 
 const pad2 = (n) => String(n).padStart(2, '0');
 function todayKey(d = new Date()) {
@@ -20,17 +23,26 @@ function humanDur(ms) {
   if (h > 0) return `${h}h`;
   return `${m}m`;
 }
+function padRightOrKeep(s, w) {
+  s = (s ?? '').trim();
+  return s.length >= w ? s : s + ' '.repeat(w - s.length);
+}
+function padLeft(s, w) {
+  s = (s ?? '').trim();
+  return s.length >= w ? s : ' '.repeat(w - s.length) + s;
+}
 function toMarkdown(daySessions, nowTs = Date.now()) {
   const lines = [];
-  lines.push('| Task start time | Task name | Time spent |');
-  lines.push('|---|---|---|');
+  lines.push(`|Start| ${padRightOrKeep('Task name', COL_NAME_W - 1)}| Spent |`);
+  lines.push(`|${'-'.repeat(COL_START_W)}|${'-'.repeat(COL_NAME_W)}|${'-'.repeat(COL_SPENT_W)}|`);
 
   for (const s of daySessions) {
     const start = fmtHHMM(s.start);
-    const label = s.label || IDLE_LABEL;
+    const rawLabel = (s.label || IDLE_LABEL).trim();
+    const nameCell = rawLabel.length <= COL_NAME_W ? padRightOrKeep(rawLabel, COL_NAME_W) : rawLabel;
     const endMs = (s.end != null ? s.end : nowTs) - s.start;
-    const spent = humanDur(endMs);
-    lines.push(`| ${start} | ${label} | ${spent} |`);
+    const spentCell = padLeft(humanDur(endMs), COL_SPENT_W);
+    lines.push(`|${start}|${nameCell}|${spentCell}|`);
   }
   return lines.join('\n');
 }
