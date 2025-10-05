@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>To Do Chronolog</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <h1>Daily time tracking:</h1>
+    <small id="date"></small>
+  </header>
+
+  <section id="current">
+    <div><strong>Current:</strong> <span id="curr-label">—</span></div>
+    <div><strong>Since:</strong> <span id="curr-since">—</span></div>
+    <div><strong>Elapsed:</strong> <span id="curr-elapsed">—</span></div>
+  </section>
+
+  <section>
+    <h2>Markdown table</h2>
+    <textarea id="md" readonly rows="12" spellcheck="false"></textarea>
+    <div class="actions">
+      <button id="copy">Copy</button>
+      <a id="download" download="chronolog.txt">Download .txt</a>
+    </div>
+  </section>
+
+  <footer>
+    <button id="reset-today" title="Clear today’s log (keeps running session as Idle)">Reset today</button>
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>
+

@@ -1,10 +1,20 @@
 {
   "manifest_version": 3,
-  "name": "To Do Focus & Hide Upcoming",
-  "short_name": "ToDo Focus+Hide",
-  "version": "1.0.0",
-  "description": "Add a one-click Focus timer on task rows and a toolbar toggle to hide tasks with a future due date in Microsoft To Do on the web.",
+  "name": "MS ToDo Focus & Chronolog",
+  "short_name": "MsToDo Focus+ChronoLog",
+  "version": "1.1.0",
+  "description": "Add a Focus timer on Microsoft To Do tasks, hide future-dated tasks, and log your day as a Markdown chronolog.",
   "permissions": ["storage"],
+  "action": {
+    "default_title": "To Do Chronolog",
+    "default_popup": "popup.html"
+  },
+  "icons": {
+    "16": "icons/16.png",
+    "32": "icons/32.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
   "content_scripts": [
     {
       "matches": ["https://to-do.live.com/tasks/*"],

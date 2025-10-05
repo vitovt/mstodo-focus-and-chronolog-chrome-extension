@@ -1,6 +1,8 @@
 // To Do Focus & Hide Upcoming (Manifest V3 content script)
 // Injects: (1) Work Chip timer per task row, (2) "Hide upcoming" toggle button.
 // Not affiliated with Microsoft. Best-effort selectors; resilient to failures.
+// 3) Chronolog (Daily time tracking): logs task sessions + Idle to chrome.storage
+// and exposes a Markdown table via popup.html.
 
 (() => {
   'use strict';
@@ -8,40 +10,103 @@
   window.__kuroInjected = true;
 
   const STORAGE_KEYS = {
-    workStartMap: 'kuro.work.start',
-    hideFuture: 'kuro.hideFuture'
+    hideFuture: 'kuro.hideFuture',
+    logs: 'kuro.logs' // { [YYYY-MM-DD]: Array<Session> }, Session: {label,start,end?}
   };
 
   const OBSERVER_CFG = { childList: true, subtree: true };
+  const IDLE_LABEL = 'Idle';
 
-  // ---------- Utilities ----------
-  const log = (...args) => console.log('[ToDo Focus+Hide]', ...args);
-  const safeQ = (sel, root = document) => root.querySelector(sel);
-  const safeQA = (sel, root = document) => Array.from(root.querySelectorAll(sel));
-  const textOf = (el) => (el && (el.innerText || el.textContent) || '').trim();
-
-  function readJsonLS(key, fallback = {}) {
-    try {
-      const raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : fallback;
-    } catch {
-      return fallback;
+  // ---------- Simple chrome.storage wrappers ----------
+  const store = {
+    get(keys) {
+      return new Promise(resolve => chrome.storage.local.get(keys, resolve));
+    },
+    set(obj) {
+      return new Promise(resolve => chrome.storage.local.set(obj, resolve));
     }
+  };
+
+  // ---------- Time / format helpers ----------
+  const pad2 = (n) => String(n).padStart(2, '0');
+  function todayKey(d = new Date()) {
+    const y = d.getFullYear();
+    const m = pad2(d.getMonth() + 1);
+    const da = pad2(d.getDate());
+    return `${y}-${m}-${da}`;
   }
-  function writeJsonLS(key, obj) {
-    try {
-      localStorage.setItem(key, JSON.stringify(obj));
-    } catch {
-      /* ignore */
-    }
+  function fmtHHMM(ts) {
+    const d = new Date(ts);
+    return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  }
+  function humanDur(ms) {
+    const mins = Math.max(0, Math.round(ms / 60000));
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    if (h > 0 && m > 0) return `${h}h ${m}m`;
+    if (h > 0) return `${h}h`;
+    return `${m}m`;
   }
 
-  // ---------- Work Chip (Focus timer) ----------
+  // ---------- Logs (chronolog) ----------
+  async function getLogs() {
+    const data = await store.get([STORAGE_KEYS.logs]);
+    return data[STORAGE_KEYS.logs] || {};
+  }
+  async function setLogs(logs) {
+    await store.set({ [STORAGE_KEYS.logs]: logs });
+  }
+  async function getTodayLog() {
+    const logs = await getLogs();
+    const key = todayKey();
+    return { logs, key, day: logs[key] || [] };
+  }
+  async function appendSession(label, startTs) {
+    const { logs, key, day } = await getTodayLog();
+    day.push({ label, start: startTs });
+    logs[key] = day;
+    await setLogs(logs);
+  }
+  async function endOpenSession(endTs) {
+    const { logs, key, day } = await getTodayLog();
+    if (day.length === 0) return null;
+    const last = day[day.length - 1];
+    if (last.end == null) {
+      last.end = endTs;
+      logs[key] = day;
+      await setLogs(logs);
+      return last;
+    }
+    return null;
+  }
+  async function ensureOpenSession(labelIfNone = IDLE_LABEL) {
+    const { logs, key, day } = await getTodayLog();
+    if (day.length === 0 || day[day.length - 1].end != null) {
+      // Open a new session (Idle by default)
+      await appendSession(labelIfNone, Date.now());
+      return { label: labelIfNone };
+    }
+    return { label: day[day.length - 1].label };
+  }
+  async function switchSession(newLabel) {
+    const now = Date.now();
+    await endOpenSession(now);
+    await appendSession(newLabel, now);
+  }
+
+  // Ensure we never have overlapping "working" sessions:
+  function stopOtherWorkingUIs(exceptBody) {
+    document.querySelectorAll('.taskItem-body.is-working').forEach(el => {
+      if (el !== exceptBody) {
+        // Synthetic stop for UI-only; we need to actually trigger the same logic used on click:
+        stopWorkForTask(el);
+      }
+    });
+  }
+
+  // ---------- Core UI augmentation ----------
   function setupWorkChips() {
-    // initial augment
-    safeQA('.taskItem-body').forEach(augmentTaskItemBody);
-
-    // observe for new tasks
+    document.querySelectorAll('.taskItem-body').forEach(augmentTaskItemBody);
     const root = document.getElementById('root') || document.body;
     const mo = new MutationObserver((muts) => {
       for (const m of muts) {
@@ -71,65 +136,17 @@
     chip.title = 'Click to start/stop Focus tracking for this task';
     chip.addEventListener('click', (ev) => onWorkChipClick(ev, taskBody));
     taskBody.prepend(chip);
-
-    tryRestoreWorkingState(taskBody);
   }
 
-  function onWorkChipClick(ev, taskBody) {
-    ev.preventDefault();
-    ev.stopPropagation();
-
-    const key = getTaskWorkKey(taskBody);
-    const now = Date.now();
-
-    if (taskBody.classList.contains('is-working')) {
-      // stop → compute elapsed and rename
-      const started = Number(taskBody.getAttribute('data-work-start')) || getPersistedStart(key);
-      const deltaMs = started ? Math.max(0, now - started) : 0;
-
-      taskBody.classList.remove('is-working');
-      taskBody.removeAttribute('data-work-start');
-      persistStart(key, null);
-
-      if (deltaMs > 0) {
-        const mins = Math.round(deltaMs / 60000);
-        const titleEl = taskBody.querySelector('.taskItem-title');
-        if (!titleEl) return;
-
-        const originalTitle = getTitleText(titleEl);
-        const { baseTitle, existingMins } = splitTitleAndTrackedMins(originalTitle);
-        const newTotal = (existingMins || 0) + mins;
-        const newTitle = `${baseTitle} [${formatMinutes(newTotal)}]`;
-
-        renameTaskThroughUI(taskBody, newTitle)
-          .catch(() => {
-            // fallback: visible only
-            setVisibleTitle(titleEl, newTitle);
-          });
-      }
-    } else {
-      // start
-      taskBody.classList.add('is-working');
-      taskBody.setAttribute('data-work-start', String(now));
-      persistStart(key, now);
-    }
-  }
-
-  function tryRestoreWorkingState(taskBody) {
-    const key = getTaskWorkKey(taskBody);
-    const started = getPersistedStart(key);
-    if (started) {
-      taskBody.classList.add('is-working');
-      taskBody.setAttribute('data-work-start', String(started));
-    }
+  function getTitleEl(taskBody) {
+    return taskBody.querySelector('.taskItem-title');
   }
 
   function getTitleText(titleEl) {
-    return textOf(titleEl);
+    return (titleEl && (titleEl.innerText || titleEl.textContent) || '').trim();
   }
   function setVisibleTitle(titleEl, text) {
-    if (!titleEl) return;
-    titleEl.textContent = text;
+    if (titleEl) titleEl.textContent = text;
   }
 
   function splitTitleAndTrackedMins(title) {
@@ -149,7 +166,6 @@
     const baseTitle = title.replace(re, '').trim();
     return { baseTitle, existingMins };
   }
-
   function formatMinutes(totalMins) {
     const h = Math.floor(totalMins / 60);
     const m = Math.max(0, totalMins % 60);
@@ -158,44 +174,91 @@
     return `${m}m`;
   }
 
-  function currentListName() {
-    const listEl = document.querySelector('.listTitle');
-    const name = listEl ? textOf(listEl) : '';
-    return name || 'Tasks';
+  async function onWorkChipClick(ev, taskBody) {
+    ev.preventDefault();
+    ev.stopPropagation();
+
+    // Enforce single active: if any other is-working, stop it.
+    stopOtherWorkingUIs(taskBody);
+
+    if (taskBody.classList.contains('is-working')) {
+      await stopWorkForTask(taskBody);
+    } else {
+      await startWorkForTask(taskBody);
+    }
   }
 
-  function getTaskWorkKey(taskBody) {
-    const titleEl = taskBody.querySelector('.taskItem-title');
+  async function startWorkForTask(taskBody) {
+    const titleEl = getTitleEl(taskBody);
+    if (!titleEl) return;
+
+    // Switch chronolog session to this task
+    const { baseTitle } = splitTitleAndTrackedMins(getTitleText(titleEl));
+    await switchSession(baseTitle);
+
+    // UI mark
+    taskBody.classList.add('is-working');
+    taskBody.setAttribute('data-work-start', String(Date.now()));
+  }
+
+  async function stopWorkForTask(taskBody) {
+    const titleEl = getTitleEl(taskBody);
+    if (!titleEl) {
+      // still ensure Idle starts in chronolog
+      await switchSession(IDLE_LABEL);
+      taskBody.classList.remove('is-working');
+      taskBody.removeAttribute('data-work-start');
+      return;
+    }
+
     const rawTitle = getTitleText(titleEl);
-    const { baseTitle } = splitTitleAndTrackedMins(rawTitle);
-    return `${currentListName()}::${baseTitle}`;
-  }
+    const { baseTitle, existingMins } = splitTitleAndTrackedMins(rawTitle);
 
-  function getPersistedStart(key) {
-    const map = readJsonLS(STORAGE_KEYS.workStartMap, {});
-    const val = map[key];
-    return typeof val === 'number' ? val : null;
-  }
+    // Determine elapsed time from open session (safe fallback: from DOM attribute)
+    const { logs, key, day } = await getTodayLog();
+    const last = day[day.length - 1];
+    const now = Date.now();
+    let deltaMs = 0;
 
-  function persistStart(key, value) {
-    const map = readJsonLS(STORAGE_KEYS.workStartMap, {});
-    if (value) map[key] = value;
-    else delete map[key];
-    writeJsonLS(STORAGE_KEYS.workStartMap, map);
+    if (last && last.label === baseTitle && last.end == null) {
+      last.end = now;
+      logs[key] = day;
+      await setLogs(logs);
+      deltaMs = now - last.start;
+    } else {
+      // Fallback to attribute (if any)
+      const started = Number(taskBody.getAttribute('data-work-start')) || now;
+      deltaMs = Math.max(0, now - started);
+    }
+
+    const mins = Math.round(deltaMs / 60000);
+    const newTotal = (existingMins || 0) + mins;
+    const newTitle = `${baseTitle} [${formatMinutes(newTotal)}]`;
+
+    // Try to rename via UI; fallback to visual text only.
+    try {
+      await renameTaskThroughUI(taskBody, newTitle);
+    } catch {
+      setVisibleTitle(titleEl, newTitle);
+    }
+
+    // Switch to Idle session
+    await switchSession(IDLE_LABEL);
+
+    // UI unmark
+    taskBody.classList.remove('is-working');
+    taskBody.removeAttribute('data-work-start');
   }
 
   async function renameTaskThroughUI(taskBody, newTitle) {
-    // Ensure the row is selected
     const rowBtn = taskBody.querySelector('button.taskItem-titleWrapper') ||
                    taskBody.querySelector('.taskItem-titleWrapper');
     if (!rowBtn) throw new Error('Title wrapper not found');
     rowBtn.click();
 
-    // Open editor in the right pane
     const editButton = await waitForSelector('.editableContent-editButton', 2000);
     editButton.click();
 
-    // Find an editable field
     const editor = await waitForSelector('.editableContent input[type="text"], .editableContent textarea, .editableContent [contenteditable="true"]', 2000);
 
     if (editor.tagName === 'INPUT' || editor.tagName === 'TEXTAREA') {
@@ -287,9 +350,8 @@
 
       // Fallbacks: try any toolbar region that holds view buttons
       if (!listBtn) {
-        const anyToolbarIconButton = document.querySelector('.toolbarButton, [role="toolbar"] .button');
-        if (!anyToolbarIconButton) return false;
-        listBtn = anyToolbarIconButton;
+        listBtn = document.querySelector('.toolbarButton, [role="toolbar"] .button');
+        if (!listBtn) return false;
       }
 
       const container = listBtn.parentElement?.parentElement || listBtn.parentElement;
@@ -311,12 +373,6 @@
       // clone an existing icon block if we can, otherwise a simple placeholder
       const iconSrc = listBtn.querySelector('.toolbarButton-icon')?.cloneNode(true);
       if (iconSrc) icon.appendChild(iconSrc);
-      else {
-        const i = document.createElement('i');
-        i.className = 'icon fontIcon ms-Icon ms-Icon--Filter iconSize-24';
-        icon.appendChild(i);
-      }
-
       const label = document.createElement('span');
       label.textContent = 'Hide upcoming';
 
@@ -348,7 +404,7 @@
   }
 
   function classifyAllTasksForFuture() {
-    safeQA('.taskItem').forEach(classifyTaskFutureState);
+    document.querySelectorAll('.taskItem').forEach(classifyTaskFutureState);
   }
 
   function classifyTaskFutureState(taskItem) {
@@ -386,22 +442,16 @@
   }
 
   // ---------- Boot ----------
-  function boot() {
-    try {
-      setupWorkChips();
-    } catch (e) {
-      console.error('WorkChip init failed', e);
-    }
+  async function boot() {
+    // Chronolog: ensure there's always an open session (Idle if none).
+    await ensureOpenSession(IDLE_LABEL);
 
-    try {
-      setupHideFutureTasksToggle();
-    } catch (e) {
-      console.error('Hide-future toggle init failed', e);
-    }
+    try { setupWorkChips(); } catch (e) { console.error('WorkChip init failed', e); }
+    try { setupHideFutureTasksToggle(); } catch (e) { console.error('Hide-future toggle init failed', e); }
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot, { once: true });
+    document.addEventListener('DOMContentLoaded', () => { boot(); }, { once: true });
   } else {
     boot();
   }
