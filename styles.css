@@ -1,0 +1,41 @@
+/* Focus Work Chip + Active row highlight */
+.taskItem-body {
+  position: relative;
+  padding-left: 10px; /* space for the work chip */
+}
+
+.taskItem-body .work-chip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  background: var(--green, #3ba55c);
+  border-radius: 2px;
+  cursor: pointer;
+  opacity: 0.9;
+}
+
+/* Visual indicator when task is being worked on */
+.taskItem-body.is-working button.taskItem-titleWrapper,
+.taskItem-body.is-working .taskItem-titleWrapper {
+  background: #b29b1c !important; /* gold yellow */
+  box-shadow: inset 0 0 0 1px #e0c862;
+}
+
+/* Preserve inner styles */
+.taskItem-body.is-working button.taskItem-titleWrapper * {
+  background: transparent !important;
+}
+
+/* Hide-future filter */
+html.hide-future-tasks .taskItem.kuro-future-task {
+  display: none !important;
+}
+
+/* Optional: make our toolbar button look selected when active */
+.kuro-hide-future-btn.selectedButton {
+  outline: 2px solid #e0c862;
+  border-radius: 6px;
+}
+

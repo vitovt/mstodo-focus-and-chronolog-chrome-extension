@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "To Do Focus & Hide Upcoming",
+  "short_name": "ToDo Focus+Hide",
+  "version": "1.0.0",
+  "description": "Add a one-click Focus timer on task rows and a toolbar toggle to hide tasks with a future due date in Microsoft To Do on the web.",
+  "permissions": ["storage"],
+  "content_scripts": [
+    {
+      "matches": ["https://to-do.live.com/tasks/*"],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
+
