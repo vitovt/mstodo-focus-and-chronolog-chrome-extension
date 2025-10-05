@@ -1,6 +1,9 @@
 # MsToDo Focus & Chronolog (Chrome Extension)
 
-Enhance the **Microsoft To Do** web app with:
+Enhance the **Microsoft To Do** web app with productivity features:
+
+https://github.com/user-attachments/assets/a15f7b09-6df9-4193-8450-c4d7938bd61c
+
 
 1. **Focus timer per task**  
    Click the narrow green “work chip” on a task row to start/stop timing. On stop, elapsed time is appended to the title like `[1h 5m]`. Multiple sessions accumulate.
@@ -72,8 +75,8 @@ It helps you see where your time actually goes and make better decisions about h
 
 ## Thanks and inspirations
 
-The project was inspired by Maxim Dorofeev and grate todo application Maxdone (maxdone.micromiles.co) - RIP (
-and similar extension for Maxdone: https://github.com/alatyshau/maxdone-chrome-extension
+The project was inspired by Maxim Dorofeev (aka) and excellent to-do application **Maxdone** (maxdone.micromiles.co) - RIP (
+as well as the related Chrome extension for Maxdone: https://github.com/alatyshau/maxdone-chrome-extension
 
 ## License
 
