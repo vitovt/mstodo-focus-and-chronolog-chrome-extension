@@ -97,14 +97,12 @@
   // Ensure we never have overlapping "working" sessions:
   async function stopOtherWorkingUIs(exceptBody, skipIdle) {
     const list = Array.from(document.querySelectorAll('.taskItem-body.is-working'));
-    const promises = [];
-    list.forEach(el => {
+    for (const el of list) {
       if (el !== exceptBody) {
         // Synthetic stop for UI-only; we need to actually trigger the same logic used on click:
-        promises.push(stopWorkForTask(el, skipIdle));
+        await stopWorkForTask(el, skipIdle);
       }
-    });
-    if (promises.length) { await Promise.all(promises); }
+    }
   }
 
   // ---------- Core UI augmentation ----------
@@ -376,6 +374,12 @@
       // clone an existing icon block if we can, otherwise a simple placeholder
       const iconSrc = listBtn.querySelector('.toolbarButton-icon')?.cloneNode(true);
       if (iconSrc) icon.appendChild(iconSrc);
+      else {
+        const i = document.createElement('i');
+        i.className = 'icon fontIcon ms-Icon ms-Icon--Filter iconSize-24';
+        icon.appendChild(i);
+      }
+
       const label = document.createElement('span');
       label.textContent = 'Hide upcoming';
 
