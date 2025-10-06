@@ -25,13 +25,19 @@ It helps you see where your time actually goes and make better decisions about h
 
 ---
 
-## Install (Unpacked)
+## Installation
+
+### Dev version from GIT
 
 1. Clone git repository in a folder, e.g. `todo-focus-hide-chronolog/`:
 
 2. Open **chrome://extensions** (or **edge://extensions**), enable **Developer mode**, click **Load unpacked**, and select the folder.
 
 3. Open `https://to-do.live.com/tasks/` (reload if already open).
+
+### From Google WEB store
+
+https://chromewebstore.google.com/detail/ms-todo-focus-chronolog/fgkkmokgpilcfageadkabpfcolkddefk
 
 ---
 
@@ -75,7 +81,7 @@ It helps you see where your time actually goes and make better decisions about h
 
 ## Thanks and inspirations
 
-The project was inspired by Maxim Dorofeev (aka) and excellent to-do application **Maxdone** (maxdone.micromiles.co) - RIP (
+The project was inspired by Maxim Dorofeev (aka Cartmendum) and excellent to-do application **Maxdone** (maxdone.micromiles.co) - RIP (
 as well as the related Chrome extension for Maxdone: https://github.com/alatyshau/maxdone-chrome-extension
 
 ## License
