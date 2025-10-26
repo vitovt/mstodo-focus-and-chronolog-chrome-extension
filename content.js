@@ -25,6 +25,25 @@
     }))
   })();
 
+  // Global busy gate to drop rapid clicks while a flow runs
+  let uiBusy = false;
+  function setBusyChips(on) {
+    try {
+      document.querySelectorAll('.work-chip').forEach(chip => {
+        chip.classList.toggle('kuro-busy', !!on);
+        chip.style.pointerEvents = on ? 'none' : '';
+        if (on) {
+          if (!chip.hasAttribute('data-prev-title')) chip.setAttribute('data-prev-title', chip.title || '');
+          chip.title = 'Working… please wait';
+        } else {
+          const prev = chip.getAttribute('data-prev-title');
+          if (prev != null) chip.title = prev;
+          chip.removeAttribute('data-prev-title');
+        }
+      });
+    } catch {/* ignore */}
+  }
+
   // ---------- Simple chrome.storage wrappers ----------
   const store = {
     get(keys) {
@@ -165,14 +184,27 @@
     ev.preventDefault();
     ev.stopPropagation();
 
-    // Enforce single active: if any other is-working, stop it, queued.
-    await stopOtherWorkingUIsQueued(taskBody, true);
+    // If a stop/start flow is in progress, drop extra clicks.
+    if (uiBusy) {
+      console.debug('[mstodo-ext] busy; dropping click');
+      return;
+    }
+    uiBusy = true;
+    setBusyChips(true);
 
-    // Serialize the action for this row through the UI queue as well.
-    if (taskBody.classList.contains('is-working')) {
-      await uiQueue(() => stopWorkForTask(taskBody));
-    } else {
-      await uiQueue(() => startWorkForTask(taskBody));
+    // Enforce single active: if any other is-working, stop it, queued.
+    try {
+      await stopOtherWorkingUIsQueued(taskBody, true);
+
+      // Serialize the action for this row through the UI queue as well.
+      if (taskBody.classList.contains('is-working')) {
+        await uiQueue(() => stopWorkForTask(taskBody));
+      } else {
+        await uiQueue(() => startWorkForTask(taskBody));
+      }
+    } finally {
+      uiBusy = false;
+      setBusyChips(false);
     }
   }
 
