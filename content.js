@@ -17,6 +17,14 @@
   const OBSERVER_CFG = { childList: true, subtree: true };
   const IDLE_LABEL = 'Idle';
 
+  // ---------- UI queue (serialize stop/start flows) ----------
+  const uiQueue = (() => {
+    let chain = Promise.resolve();
+    return (fn) => (chain = chain.then(() => fn()).catch(err => {
+      console.warn('[mstodo-ext] queue err', err);
+    }))
+  })();
+
   // ---------- Simple chrome.storage wrappers ----------
   const store = {
     get(keys) {
@@ -35,18 +43,7 @@
     const da = pad2(d.getDate());
     return `${y}-${m}-${da}`;
   }
-  function fmtHHMM(ts) {
-    const d = new Date(ts);
-    return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-  }
-  function humanDur(ms) {
-    const mins = Math.max(0, Math.round(ms / 60000));
-    const h = Math.floor(mins / 60);
-    const m = mins % 60;
-    if (h > 0 && m > 0) return `${h}h ${m}m`;
-    if (h > 0) return `${h}h`;
-    return `${m}m`;
-  }
+  // fmtHHMM and humanDur were unused and removed
 
   // ---------- Logs (chronolog) ----------
   async function getLogs() {
@@ -94,16 +91,7 @@
     await appendSession(newLabel, now);
   }
 
-  // Ensure we never have overlapping "working" sessions:
-  async function stopOtherWorkingUIs(exceptBody, skipIdle) {
-    const list = Array.from(document.querySelectorAll('.taskItem-body.is-working'));
-    for (const el of list) {
-      if (el !== exceptBody) {
-        // Synthetic stop for UI-only; we need to actually trigger the same logic used on click:
-        await stopWorkForTask(el, skipIdle);
-      }
-    }
-  }
+  // stopOtherWorkingUIs replaced by queued variant below
 
   // ---------- Core UI augmentation ----------
   function setupWorkChips() {
@@ -146,9 +134,7 @@
   function getTitleText(titleEl) {
     return (titleEl && (titleEl.innerText || titleEl.textContent) || '').trim();
   }
-  function setVisibleTitle(titleEl, text) {
-    if (titleEl) titleEl.textContent = text;
-  }
+  // setVisibleTitle was a fallback; removed to avoid writing into wrong pane
 
   function splitTitleAndTrackedMins(title) {
     // matches: [1h 5m], [75m], [2h]
@@ -179,13 +165,14 @@
     ev.preventDefault();
     ev.stopPropagation();
 
-    // Enforce single active: if any other is-working, stop it.
-    await stopOtherWorkingUIs(taskBody, true);
+    // Enforce single active: if any other is-working, stop it, queued.
+    await stopOtherWorkingUIsQueued(taskBody, true);
 
+    // Serialize the action for this row through the UI queue as well.
     if (taskBody.classList.contains('is-working')) {
-      await stopWorkForTask(taskBody);
+      await uiQueue(() => stopWorkForTask(taskBody));
     } else {
-      await startWorkForTask(taskBody);
+      await uiQueue(() => startWorkForTask(taskBody));
     }
   }
 
@@ -236,11 +223,20 @@
     const newTotal = (existingMins || 0) + mins;
     const newTitle = `${baseTitle} [${formatMinutes(newTotal)}]`;
 
-    // Try to rename via UI; fallback to visual text only.
+    // Immutable per-task context snapshot
+    const ctx = {
+      taskBody,
+      baseTitle,
+      rawTitle,
+      newTitle
+    };
+
+    // Try to rename via UI with scoped selectors and identity checks; fallback to visual text only.
     try {
-      await renameTaskThroughUI(taskBody, newTitle);
-    } catch {
-      setVisibleTitle(titleEl, newTitle);
+      await renameTaskThroughUI(ctx);
+    } catch (e) {
+      console.warn('[mstodo-ext] stop: rename failed/aborted', e);
+      try { alert(`[mstodo-ext] Could not safely rename "${rawTitle}".\n\nPlease rename manually to:\n${newTitle}`); } catch {}
     }
 
     // Switch to Idle session
@@ -251,20 +247,51 @@
     taskBody.removeAttribute('data-work-start');
   }
 
-  async function renameTaskThroughUI(taskBody, newTitle) {
-    // Ensure the row is selected
+  async function renameTaskThroughUI(ctx) {
+    const { taskBody, baseTitle, rawTitle, newTitle } = ctx;
+    console.debug('[mstodo-ext] stop: ctx', { baseTitle });
+
+    // Ensure the row is selected (click on the row title area)
     const rowBtn = taskBody.querySelector('button.taskItem-titleWrapper') ||
-                   taskBody.querySelector('.taskItem-titleWrapper');
+                   taskBody.querySelector('.taskItem-titleWrapper') ||
+                   taskBody.querySelector('[role="button"], .taskItem-title');
     if (!rowBtn) throw new Error('Title wrapper not found');
     rowBtn.click();
 
-    // Open editor in the right pane
+    // Wait for the edit button within the details pane
     const editButton = await waitForSelector('.editableContent-editButton', 2000);
+
+    // Scope to the nearest editableContent container for all subsequent queries
+    const paneEditable = editButton.closest('.editableContent') || document;
     editButton.click();
 
-    // Find an editable field
-    const editor = await waitForSelector('.editableContent input[type="text"], .editableContent textarea, .editableContent [contenteditable="true"]', 2000);
+    // Find an editable field within the scoped container
+    const editor = await waitForSelectorWithin(
+      paneEditable,
+      'input[type="text"], textarea, [contenteditable="true"]',
+      2000
+    );
 
+    // Identity verification before typing: compare editor's current text with task row's title
+    const currentEditorText = (editor.tagName === 'INPUT' || editor.tagName === 'TEXTAREA')
+      ? (editor.value || '')
+      : (editor.textContent || '');
+
+    const editorBase = splitTitleAndTrackedMins((currentEditorText || '').trim()).baseTitle;
+    const rowBase = splitTitleAndTrackedMins(getTitleText(getTitleEl(taskBody))).baseTitle;
+    const targetBase = baseTitle;
+
+    const paneMatch = editorBase === targetBase && rowBase === targetBase;
+    console.debug('[mstodo-ext] stop: paneMatch', paneMatch, { editorBase, rowBase, targetBase });
+
+    if (!paneMatch) {
+      const msg = `[mstodo-ext] abort: pane mismatch for "${rawTitle}" → "${newTitle}"`;
+      console.warn(msg);
+      try { alert(`${msg}\n\nPlease rename manually if needed.`); } catch {}
+      throw new Error('Pane identity mismatch');
+    }
+
+    // Type and commit
     if (editor.tagName === 'INPUT' || editor.tagName === 'TEXTAREA') {
       editor.focus();
       editor.value = newTitle;
@@ -280,31 +307,49 @@
       editor.blur();
     }
 
-    // Optional: close details pane if present
-    const closeBtn = document.querySelector('.detailFooter-close');
+    // Optional: close details pane if present, scoped if possible
+    const paneRoot = editButton.closest('[class*="detail"], [class*="pane"], .editableContent') || document;
+    const closeBtn = paneRoot.querySelector?.('.detailFooter-close') || document.querySelector('.detailFooter-close');
     if (closeBtn) closeBtn.click();
   }
 
   function waitForSelector(selector, timeoutMs = 3000) {
+    return waitForSelectorWithin(document, selector, timeoutMs);
+  }
+
+  function waitForSelectorWithin(root, selector, timeoutMs = 3000) {
     return new Promise((resolve, reject) => {
-      const existing = document.querySelector(selector);
+      const q = () => root.querySelector?.(selector) || null;
+      const existing = q();
       if (existing) return resolve(existing);
 
       const observer = new MutationObserver(() => {
-        const el = document.querySelector(selector);
+        const el = q();
         if (el) {
           observer.disconnect();
           resolve(el);
         }
       });
-      observer.observe(document.body, { childList: true, subtree: true });
+      const rootNode = (root instanceof Document) ? root.body : root;
+      try { observer.observe(rootNode || document.body, { childList: true, subtree: true }); } catch {}
 
-      setTimeout(() => {
+      const timeout = setTimeout(() => {
         observer.disconnect();
-        const el = document.querySelector(selector);
-        el ? resolve(el) : reject(new Error(`Timeout waiting for selector: ${selector}`));
+        const el = q();
+        if (el) return resolve(el);
+        reject(new Error(`Timeout waiting for selector: ${selector}`));
       }, timeoutMs);
     });
+  }
+
+  // Queued variant: stop all other working UIs
+  async function stopOtherWorkingUIsQueued(exceptBody, skipIdle) {
+    const list = Array.from(document.querySelectorAll('.taskItem-body.is-working'));
+    for (const el of list) {
+      if (el !== exceptBody) {
+        await uiQueue(() => stopWorkForTask(el, skipIdle));
+      }
+    }
   }
 
   // ---------- Hide upcoming tasks ----------
@@ -467,4 +512,3 @@
     boot();
   }
 })();
-
