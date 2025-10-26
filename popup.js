@@ -109,6 +109,16 @@ async function load() {
   elDownload.href = url;
 }
 
+document.addEventListener('DOMContentLoaded', () => {
+  const link = document.getElementById('mstodo-link');
+  link.addEventListener('click', (e) => {
+    console.log("open MsToDo link");
+    e.preventDefault();            // prevent the popup from trying to navigate itself
+    chrome.tabs.create({ url: link.href }); // open in a normal browser tab
+  });
+});
+
+
 document.getElementById('copy').addEventListener('click', async () => {
   const txt = document.getElementById('md').value;
   try {
