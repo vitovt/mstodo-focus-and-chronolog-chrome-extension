@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "MS ToDo Focus & Chronolog",
   "short_name": "MsToDo Focus+ChronoLog",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "description": "Add a Focus timer on Microsoft To Do tasks, hide future-dated tasks, and log your day as a Markdown chronolog.",
   "permissions": ["storage"],
   "action": {
