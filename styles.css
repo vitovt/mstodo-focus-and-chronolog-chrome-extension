@@ -49,3 +49,50 @@ html.hide-recurring-tasks .taskItem.kuro-recurring-task {
   outline: 2px solid #e0c862;
   border-radius: 6px;
 }
+
+/* Combined Filters menu (mobile) */
+.kuro-filter-menu { display: inline-block; position: relative; }
+.kuro-filter-menu-btn { /* inherits toolbarButton styles from site */ }
+.kuro-filter-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  min-width: 220px;
+  background: var(--todo-surface, #fff);
+  color: inherit;
+  border: 1px solid rgba(0,0,0,0.12);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+  border-radius: 8px;
+  padding: 6px;
+  margin-top: 6px;
+  z-index: 9999;
+  display: none;
+}
+.kuro-filter-dropdown.open { display: block; }
+.kuro-filter-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 12px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+.kuro-filter-item[aria-checked="true"]::before {
+  content: '✓ ';
+}
+.kuro-filter-item:active,
+.kuro-filter-item:focus,
+.kuro-filter-item:hover {
+  background: rgba(0,0,0,0.06);
+}
+
+/* On narrow viewports, hide the two separate buttons and show the combined menu */
+@media (max-width: 720px) {
+  .kuro-hide-future-btn,
+  .kuro-hide-recurring-btn {
+    display: none !important;
+  }
+  .kuro-filter-menu { display: block; }
+}

@@ -418,6 +418,9 @@
       const span = btn.querySelector('span');
       if (span) span.textContent = on ? 'Show upcoming' : 'Hide upcoming';
     }
+
+    // Update labels in the mobile dropdown, if present
+    try { refreshFilterMenuLabels(); } catch {}
   }
 
   function toggleHideFutureState() {
@@ -530,6 +533,159 @@
     mo.observe(root, { childList: true, subtree: true, characterData: true, attributes: true });
   }
 
+  // ---------- Mobile-friendly combined filter menu (Future + Recurring) ----------
+  function setupMobileFiltersMenu() {
+    insertFiltersMenuButton();
+    refreshFilterMenuLabels();
+  }
+
+  function insertFiltersMenuButton() {
+    const tryInsert = () => {
+      // Prefer inserting into the right toolbar group, slightly left of sorting/grouping
+      const rightActions = document.querySelector('.taskToolbar-right .tasksToolbar-actions');
+
+      // If already exists, ensure it's positioned inside rightActions as first item
+      const existing = document.querySelector('.kuro-filter-menu');
+      if (existing) {
+        if (rightActions && existing.parentElement !== rightActions) {
+          rightActions.insertBefore(existing, rightActions.firstChild);
+        }
+        return true;
+      }
+
+      // Create wrapper
+      const wrapper = document.createElement('div');
+      // Match site structure for spacing
+      wrapper.className = 'tasksToolbar-actionsItem kuro-filter-menu';
+
+      const btn = document.createElement('button');
+      btn.className = 'button loadingButton toolbarButton kuro-filter-menu-btn';
+      btn.setAttribute('aria-label', 'Filter options');
+      btn.setAttribute('title', 'Filter options');
+      btn.setAttribute('aria-haspopup', 'true');
+      btn.setAttribute('aria-expanded', 'false');
+
+      const inner = document.createElement('div');
+      inner.className = 'toolbarButton-inner';
+      const icon = document.createElement('div');
+      icon.className = 'toolbarButton-icon';
+      const i = document.createElement('i');
+      // Use a distinct icon (Filter) to avoid confusion with list view icon
+      i.className = 'icon fontIcon ms-Icon ms-Icon--Filter iconSize-24';
+      icon.appendChild(i);
+      const label = document.createElement('span');
+      label.textContent = 'Filters';
+      inner.appendChild(icon);
+      inner.appendChild(label);
+      btn.appendChild(inner);
+
+      const dropdown = document.createElement('div');
+      dropdown.className = 'kuro-filter-dropdown';
+      dropdown.setAttribute('role', 'menu');
+      dropdown.setAttribute('aria-hidden', 'true');
+
+      const itemFuture = document.createElement('button');
+      itemFuture.className = 'kuro-filter-item kuro-filter-item-future';
+      itemFuture.setAttribute('role', 'menuitemcheckbox');
+      itemFuture.setAttribute('aria-checked', String(!!getHideFutureState()));
+      itemFuture.textContent = getHideFutureState() ? 'Show Future Tasks' : 'Hide Future Tasks';
+      itemFuture.addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        toggleHideFutureState();
+        refreshFilterMenuLabels();
+        // Close after selection for better mobile UX
+        try { dropdown.classList.remove('open'); dropdown.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); } catch {}
+      });
+
+      const itemRecurring = document.createElement('button');
+      itemRecurring.className = 'kuro-filter-item kuro-filter-item-recurring';
+      itemRecurring.setAttribute('role', 'menuitemcheckbox');
+      itemRecurring.setAttribute('aria-checked', String(!!getHideRecurringState()));
+      itemRecurring.textContent = getHideRecurringState() ? 'Show Recurring Tasks' : 'Hide Recurring Tasks';
+      itemRecurring.addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        toggleHideRecurringState();
+        refreshFilterMenuLabels();
+        // Close after selection for better mobile UX
+        try { dropdown.classList.remove('open'); dropdown.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false'); } catch {}
+      });
+
+      dropdown.appendChild(itemFuture);
+      dropdown.appendChild(itemRecurring);
+
+      // Open/close handlers
+      const closeMenu = () => {
+        dropdown.classList.remove('open');
+        dropdown.setAttribute('aria-hidden', 'true');
+        btn.setAttribute('aria-expanded', 'false');
+      };
+      const openMenu = () => {
+        dropdown.classList.add('open');
+        dropdown.setAttribute('aria-hidden', 'false');
+        btn.setAttribute('aria-expanded', 'true');
+      };
+      const toggleMenu = (e) => {
+        e?.preventDefault?.();
+        e?.stopPropagation?.();
+        if (dropdown.classList.contains('open')) closeMenu();
+        else openMenu();
+      };
+      btn.addEventListener('click', toggleMenu);
+
+      // Click outside to close
+      document.addEventListener('click', (ev) => {
+        const t = ev.target;
+        if (!(t instanceof HTMLElement)) return;
+        if (!wrapper.contains(t)) closeMenu();
+      });
+
+      wrapper.appendChild(btn);
+      wrapper.appendChild(dropdown);
+
+      if (rightActions) {
+        // Insert as first action on the right
+        rightActions.insertBefore(wrapper, rightActions.firstChild);
+        return true;
+      }
+
+      // Fallback: insert after the view toggle group (left side)
+      let anchorBtn = document.querySelector('.gridViewToggle .toolbarButton.listButton') ||
+                      document.querySelector('.gridViewToggle .toolbarButton.gridButton');
+      if (!anchorBtn) {
+        const anyToolbarIconButton = document.querySelector('.toolbarButton, [role="toolbar"] .button');
+        if (!anyToolbarIconButton) return false;
+        anchorBtn = anyToolbarIconButton;
+      }
+      const container = anchorBtn.parentElement?.parentElement || anchorBtn.parentElement;
+      if (!container) return false;
+      container.parentElement?.insertBefore(wrapper, container.nextSibling);
+      return true;
+    };
+
+    if (!tryInsert()) {
+      const mo = new MutationObserver(() => {
+        if (tryInsert()) mo.disconnect();
+      });
+      mo.observe(document.body, OBSERVER_CFG);
+    }
+  }
+
+  function refreshFilterMenuLabels() {
+    // Update dropdown item labels and aria states, if present
+    const itemFuture = document.querySelector('.kuro-filter-item-future');
+    if (itemFuture) {
+      const on = getHideFutureState();
+      itemFuture.textContent = on ? 'Future Tasks Hidden' : 'Hide Future Tasks';
+      itemFuture.setAttribute('aria-checked', String(!!on));
+    }
+    const itemRecurring = document.querySelector('.kuro-filter-item-recurring');
+    if (itemRecurring) {
+      const on = getHideRecurringState();
+      itemRecurring.textContent = on ? 'Recurring Tasks Hidden' : 'Hide Recurring Tasks';
+      itemRecurring.setAttribute('aria-checked', String(!!on));
+    }
+  }
+
   // ---------- Hide recurring tasks ----------
   function setupHideRecurringTasksToggle() {
     // apply saved state
@@ -563,6 +719,9 @@
       const span = btn.querySelector('span');
       if (span) span.textContent = on ? 'Show Recurring' : 'Hide Recurring';
     }
+
+    // Update labels in the mobile dropdown, if present
+    try { refreshFilterMenuLabels(); } catch {}
   }
 
   function toggleHideRecurringState() {
@@ -677,6 +836,7 @@
     try { setupWorkChips(); } catch (e) { console.error('WorkChip init failed', e); }
     try { setupHideFutureTasksToggle(); } catch (e) { console.error('Hide-future toggle init failed', e); }
     try { setupHideRecurringTasksToggle(); } catch (e) { console.error('Hide-recurring toggle init failed', e); }
+    try { setupMobileFiltersMenu(); } catch (e) { console.error('Mobile filters menu init failed', e); }
   }
 
   if (document.readyState === 'loading') {
