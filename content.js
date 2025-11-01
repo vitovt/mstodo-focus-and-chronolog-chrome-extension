@@ -11,6 +11,7 @@
 
   const STORAGE_KEYS = {
     hideFuture: 'kuro.hideFuture',
+    hideRecurring: 'kuro.hideRecurring',
     logs: 'kuro.logs' // { [YYYY-MM-DD]: Array<Session> }, Session: {label,start,end?}
   };
 
@@ -529,6 +530,145 @@
     mo.observe(root, { childList: true, subtree: true, characterData: true, attributes: true });
   }
 
+  // ---------- Hide recurring tasks ----------
+  function setupHideRecurringTasksToggle() {
+    // apply saved state
+    setHideRecurringState(getHideRecurringState());
+
+    // insert button once toolbar is present
+    insertHideRecurringButton();
+
+    // classify current tasks and observe
+    classifyAllTasksForRecurring();
+    observeTasksForRecurringClassification();
+  }
+
+  function getHideRecurringState() {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.hideRecurring) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  function setHideRecurringState(on) {
+    document.documentElement.classList.toggle('hide-recurring-tasks', !!on);
+    try {
+      localStorage.setItem(STORAGE_KEYS.hideRecurring, on ? '1' : '0');
+    } catch { /* ignore */ }
+
+    const btn = document.querySelector('.kuro-hide-recurring-btn');
+    if (btn) {
+      btn.classList.toggle('selectedButton', !!on);
+      const span = btn.querySelector('span');
+      if (span) span.textContent = on ? 'Show Recurring' : 'Hide Recurring';
+    }
+  }
+
+  function toggleHideRecurringState() {
+    setHideRecurringState(!getHideRecurringState());
+    classifyAllTasksForRecurring();
+  }
+
+  function insertHideRecurringButton() {
+    const tryInsert = () => {
+      // Try to place next to existing toolbar buttons (near list/grid toggle)
+      let listBtn = document.querySelector('.gridViewToggle .toolbarButton.listButton');
+
+      if (!listBtn) {
+        const anyToolbarIconButton = document.querySelector('.toolbarButton, [role="toolbar"] .button');
+        if (!anyToolbarIconButton) return false;
+        listBtn = anyToolbarIconButton;
+      }
+
+      const container = listBtn.parentElement?.parentElement || listBtn.parentElement;
+      if (!container) return false;
+
+      if (document.querySelector('.kuro-hide-recurring-btn')) return true;
+
+      const btn = document.createElement('button');
+      btn.className = 'button loadingButton button toolbarButton kuro-hide-recurring-btn';
+      btn.setAttribute('aria-label', 'Hide recurring tasks');
+      btn.setAttribute('title', 'Hide tasks that are recurring');
+      btn.setAttribute('tabindex', '0');
+
+      const inner = document.createElement('div');
+      inner.className = 'toolbarButton-inner';
+
+      const icon = document.createElement('div');
+      icon.className = 'toolbarButton-icon';
+      const iconSrc = listBtn.querySelector('.toolbarButton-icon')?.cloneNode(true);
+      if (iconSrc) icon.appendChild(iconSrc);
+      else {
+        const i = document.createElement('i');
+        i.className = 'icon fontIcon ms-Icon ms-Icon--RepeatAll iconSize-24';
+        icon.appendChild(i);
+      }
+
+      const label = document.createElement('span');
+      label.textContent = 'Hide Recurring';
+
+      inner.appendChild(icon);
+      inner.appendChild(label);
+      btn.appendChild(inner);
+
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleHideRecurringState();
+      });
+
+      const wrapper = document.createElement('div');
+      wrapper.appendChild(btn);
+      container.parentElement?.insertBefore(wrapper, container.nextSibling);
+
+      if (getHideRecurringState()) btn.classList.add('selectedButton');
+      return true;
+    };
+
+    if (!tryInsert()) {
+      const mo = new MutationObserver(() => {
+        if (tryInsert()) mo.disconnect();
+      });
+      mo.observe(document.body, OBSERVER_CFG);
+    }
+  }
+
+  function classifyAllTasksForRecurring() {
+    document.querySelectorAll('.taskItem').forEach(classifyTaskRecurringState);
+  }
+
+  function classifyTaskRecurringState(taskItem) {
+    if (!(taskItem instanceof HTMLElement)) return;
+    try {
+      const isRecurring = !!taskItem.querySelector('.taskItemInfoRecurrence-icon');
+      taskItem.classList.toggle('kuro-recurring-task', isRecurring);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function observeTasksForRecurringClassification() {
+    const root = document.querySelector('.tasks') || document.getElementById('root') || document.body;
+    const mo = new MutationObserver((muts) => {
+      for (const m of muts) {
+        if (m.addedNodes?.length) {
+          m.addedNodes.forEach((node) => {
+            if (!(node instanceof HTMLElement)) return;
+            if (node.classList?.contains('taskItem')) classifyTaskRecurringState(node);
+            else node.querySelectorAll?.('.taskItem').forEach(classifyTaskRecurringState);
+          });
+        }
+        if (m.type === 'attributes' || m.type === 'characterData') {
+          const el = (m.target instanceof HTMLElement) ? m.target : (m.target.parentElement || null);
+          const task = el?.closest?.('.taskItem');
+          if (task) classifyTaskRecurringState(task);
+        }
+      }
+    });
+    mo.observe(root, { childList: true, subtree: true, characterData: true, attributes: true });
+  }
+
   // ---------- Boot ----------
   async function boot() {
     // Chronolog: ensure there's always an open session (Idle if none).
@@ -536,6 +676,7 @@
 
     try { setupWorkChips(); } catch (e) { console.error('WorkChip init failed', e); }
     try { setupHideFutureTasksToggle(); } catch (e) { console.error('Hide-future toggle init failed', e); }
+    try { setupHideRecurringTasksToggle(); } catch (e) { console.error('Hide-recurring toggle init failed', e); }
   }
 
   if (document.readyState === 'loading') {

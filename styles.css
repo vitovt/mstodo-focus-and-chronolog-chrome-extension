@@ -39,3 +39,13 @@ html.hide-future-tasks .taskItem.kuro-future-task {
   border-radius: 6px;
 }
 
+/* Hide-recurring filter */
+html.hide-recurring-tasks .taskItem.kuro-recurring-task {
+  display: none !important;
+}
+
+/* Optional: selected look for recurring button */
+.kuro-hide-recurring-btn.selectedButton {
+  outline: 2px solid #e0c862;
+  border-radius: 6px;
+}
