@@ -569,10 +569,8 @@
       inner.className = 'toolbarButton-inner';
       const icon = document.createElement('div');
       icon.className = 'toolbarButton-icon';
-      const i = document.createElement('i');
-      // Use a distinct icon (Filter) to avoid confusion with list view icon
-      i.className = 'icon fontIcon ms-Icon ms-Icon--Filter iconSize-24';
-      icon.appendChild(i);
+      // Use an inline SVG (monochrome via currentColor), similar to built-in buttons
+      icon.appendChild(createFilterSvgIcon());
       const label = document.createElement('span');
       label.textContent = 'Filters';
       inner.appendChild(icon);
@@ -668,6 +666,29 @@
       });
       mo.observe(document.body, OBSERVER_CFG);
     }
+  }
+
+  function createFilterSvgIcon() {
+    // Based on provided SVG, adapted to single-color theming via currentColor
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'fluentIcon');
+    svg.setAttribute('aria-label', '');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('fill', 'currentColor');
+    svg.setAttribute('width', '20');
+    svg.setAttribute('height', '20');
+    svg.setAttribute('viewBox', '0 0 392.541 392.541');
+
+    const p1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    p1.setAttribute('d', 'M219.345,344.911V190.988c0-2.909,1.164-5.689,3.232-7.758L367.386,39.586 c3.814-3.814,3.426-7.434,2.392-9.891c-1.487-3.62-6.012-7.887-13.834-7.887H36.137c-7.822,0-12.347,4.267-13.834,7.887 c-1.034,2.392-1.422,6.077,2.392,9.891L169.503,183.23c2.069,2.004,3.232,4.848,3.232,7.758v174.093L219.345,344.911z');
+    const p2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    p2.setAttribute('d', 'M59.733,43.594L91.41,75.012c0.065,0,0.259,0,0.323,0h97.228c6.012,0,10.925,4.848,10.925,10.925 c0,6.012-4.848,10.925-10.925,10.925h-75.636l22.044,21.786h31.741c6.012,0,10.925,4.848,10.925,10.925 c0,6.012-4.848,10.925-10.925,10.925h-9.826l38.853,38.335l136.21-135.176L59.733,43.594L59.733,43.594z');
+    const p3 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    p3.setAttribute('d', 'M356.008,0.022H36.137c-30.578,0-47.968,33.487-26.828,55.079l141.705,140.412v186.053 c0.065,7.111,7.564,13.382,15.192,10.02l68.396-29.543c4.008-1.681,6.594-5.624,6.594-10.02V195.513l141.64-140.412 C404.234,33.767,388.008,0.022,356.008,0.022z M367.45,39.586L222.642,183.23c-2.069,2.004-3.232,4.848-3.232,7.758v153.923 l-46.61,20.105V190.988c0-2.909-1.164-5.689-3.232-7.758L24.759,39.586c-8.339-8.792,1.099-18.295,11.442-17.778h319.806 C367.45,21.485,375.337,32.41,367.45,39.586z');
+    svg.appendChild(p1);
+    svg.appendChild(p2);
+    svg.appendChild(p3);
+    return svg;
   }
 
   function refreshFilterMenuLabels() {
