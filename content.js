@@ -586,7 +586,7 @@
       itemFuture.className = 'kuro-filter-item kuro-filter-item-future';
       itemFuture.setAttribute('role', 'menuitemcheckbox');
       itemFuture.setAttribute('aria-checked', String(!!getHideFutureState()));
-      itemFuture.textContent = getHideFutureState() ? 'Show Future Tasks' : 'Hide Future Tasks';
+      itemFuture.textContent = getHideFutureState() ? 'Future tasks Hidden' : 'Hide Future tasks';
       itemFuture.addEventListener('click', (e) => {
         e.preventDefault(); e.stopPropagation();
         toggleHideFutureState();
@@ -599,7 +599,7 @@
       itemRecurring.className = 'kuro-filter-item kuro-filter-item-recurring';
       itemRecurring.setAttribute('role', 'menuitemcheckbox');
       itemRecurring.setAttribute('aria-checked', String(!!getHideRecurringState()));
-      itemRecurring.textContent = getHideRecurringState() ? 'Show Recurring Tasks' : 'Hide Recurring Tasks';
+      itemRecurring.textContent = getHideRecurringState() ? 'Recurring tasks Hidden' : 'Hide Recurring tasks';
       itemRecurring.addEventListener('click', (e) => {
         e.preventDefault(); e.stopPropagation();
         toggleHideRecurringState();
@@ -696,13 +696,13 @@
     const itemFuture = document.querySelector('.kuro-filter-item-future');
     if (itemFuture) {
       const on = getHideFutureState();
-      itemFuture.textContent = on ? 'Future Tasks Hidden' : 'Hide Future Tasks';
+      itemFuture.textContent = on ? 'Future tasks Hidden' : 'Hide Future tasks';
       itemFuture.setAttribute('aria-checked', String(!!on));
     }
     const itemRecurring = document.querySelector('.kuro-filter-item-recurring');
     if (itemRecurring) {
       const on = getHideRecurringState();
-      itemRecurring.textContent = on ? 'Recurring Tasks Hidden' : 'Hide Recurring Tasks';
+      itemRecurring.textContent = on ? 'Recurring tasks Hidden' : 'Hide Recurring tasks';
       itemRecurring.setAttribute('aria-checked', String(!!on));
     }
   }
