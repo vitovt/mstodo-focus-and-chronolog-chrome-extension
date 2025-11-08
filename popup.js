@@ -1,4 +1,6 @@
 const STORAGE_KEY = 'kuro.logs';
+const COMPLETION_POPUP_KEY = 'kuro.completionPopupEnabled';
+const COMPLETION_POPUP_DEFAULT = true;
 const IDLE_LABEL = 'Idle';
 const COL_START_W = 5;
 const COL_NAME_W = 37;
@@ -52,6 +54,10 @@ function storageGet(keys) {
 }
 function storageSet(obj) {
   return new Promise(resolve => chrome.storage.local.set(obj, resolve));
+}
+
+function normalizeCompletionPopupSetting(value) {
+  return value !== false;
 }
 
 async function resetTodayPreserveIdle() {
@@ -109,33 +115,83 @@ async function load() {
   elDownload.href = url;
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  const link = document.getElementById('mstodo-link');
-  link.addEventListener('click', (e) => {
-    console.log("open MsToDo link");
-    e.preventDefault();            // prevent the popup from trying to navigate itself
-    chrome.tabs.create({ url: link.href }); // open in a normal browser tab
+async function initCompletionPopupToggle() {
+  const checkbox = document.getElementById('completion-popup-toggle');
+  if (!checkbox) return;
+  const data = await storageGet([COMPLETION_POPUP_KEY]);
+  const storedValue = data[COMPLETION_POPUP_KEY];
+  const enabled = storedValue === undefined
+    ? COMPLETION_POPUP_DEFAULT
+    : normalizeCompletionPopupSetting(storedValue);
+  checkbox.checked = enabled;
+
+  checkbox.addEventListener('change', async () => {
+    await storageSet({ [COMPLETION_POPUP_KEY]: checkbox.checked });
   });
-});
+}
 
+function initTabs() {
+  const buttons = document.querySelectorAll('.tab-button');
+  const panels = document.querySelectorAll('.tab-panel');
+  if (!buttons.length || !panels.length) return;
 
-document.getElementById('copy').addEventListener('click', async () => {
-  const txt = document.getElementById('md').value;
-  try {
-    await navigator.clipboard.writeText(txt);
-    const btn = document.getElementById('copy');
-    const old = btn.textContent;
-    btn.textContent = 'Copied!';
-    setTimeout(() => (btn.textContent = old), 1200);
-  } catch {
-    // ignore
-  }
-});
+  buttons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const targetId = button.getAttribute('data-tab-target');
+      buttons.forEach((btn) => {
+        const isActive = btn === button;
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-selected', String(isActive));
+      });
 
-document.getElementById('reset-today').addEventListener('click', async () => {
-  await resetTodayPreserveIdle();
+      panels.forEach((panel) => {
+        const isActive = panel.id === targetId;
+        panel.classList.toggle('active', isActive);
+        panel.setAttribute('aria-hidden', String(!isActive));
+      });
+    });
+  });
+}
+
+function setupLinkOpener() {
+  const link = document.getElementById('mstodo-link');
+  if (!link) return;
+  link.addEventListener('click', (e) => {
+    e.preventDefault();
+    chrome.tabs.create({ url: link.href });
+  });
+}
+
+function setupCopyButton() {
+  const btn = document.getElementById('copy');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    const txt = document.getElementById('md').value;
+    try {
+      await navigator.clipboard.writeText(txt);
+      const old = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => (btn.textContent = old), 1200);
+    } catch {
+      // ignore
+    }
+  });
+}
+
+function setupResetButton() {
+  const btn = document.getElementById('reset-today');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    await resetTodayPreserveIdle();
+    await load();
+  });
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  initTabs();
+  setupLinkOpener();
+  setupCopyButton();
+  setupResetButton();
+  await initCompletionPopupToggle();
   await load();
 });
-
-load();
-

@@ -11,26 +11,45 @@
     <small id="date"></small>
   </header>
 
-  <section id="current">
-    <div><strong>Current:</strong> <span id="curr-label">—</span></div>
-    <div><strong>Since:</strong> <span id="curr-since">—</span></div>
-    <div><strong>Elapsed:</strong> <span id="curr-elapsed">—</span></div>
-  </section>
+  <nav class="tab-nav" role="tablist" aria-label="Chronolog tabs">
+    <button class="tab-button active" data-tab-target="tab-chronolog" type="button" role="tab" aria-selected="true">Chronolog</button>
+    <button class="tab-button" data-tab-target="tab-settings" type="button" role="tab" aria-selected="false">Settings</button>
+  </nav>
 
-  <section>
-    <h2>Chronolog table:</h2>
-    <textarea id="md" readonly rows="12" spellcheck="false"></textarea>
-    <div class="actions">
-      <button id="copy">Copy</button>
-      <a id="download" download="chronolog.txt">Download .txt</a>
-    </div>
-  </section>
+  <main>
+    <section id="tab-chronolog" class="tab-panel active" aria-hidden="false" role="tabpanel">
+      <section id="current">
+        <div><strong>Current:</strong> <span id="curr-label">—</span></div>
+        <div><strong>Since:</strong> <span id="curr-since">—</span></div>
+        <div><strong>Elapsed:</strong> <span id="curr-elapsed">—</span></div>
+      </section>
 
-  <footer>
-    <button id="reset-today" title="Clear today’s log (keeps running session as Idle)">Reset today</button>
-  </footer>
+      <section>
+        <h2>Chronolog table:</h2>
+        <textarea id="md" readonly rows="12" spellcheck="false"></textarea>
+        <div class="actions">
+          <button id="copy" type="button">Copy</button>
+          <a id="download" download="chronolog.txt">Download .txt</a>
+        </div>
+      </section>
+
+      <footer>
+        <button id="reset-today" type="button" title="Clear today’s log (keeps running session as Idle)">Reset today</button>
+      </footer>
+    </section>
+
+    <section id="tab-settings" class="tab-panel" aria-hidden="true" role="tabpanel">
+      <h2>Settings</h2>
+      <label class="setting-row">
+        <input type="checkbox" id="completion-popup-toggle">
+        <span>
+          Show completion popup
+        </span>
+      </label>
+      <p class="setting-hint">Displays “Worked on a task …” in the middle of Microsoft To Do for 3 seconds after you stop a task.</p>
+    </section>
+  </main>
 
   <script src="popup.js"></script>
 </body>
 </html>
-

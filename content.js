@@ -12,11 +12,18 @@
   const STORAGE_KEYS = {
     hideFuture: 'kuro.hideFuture',
     hideRecurring: 'kuro.hideRecurring',
-    logs: 'kuro.logs' // { [YYYY-MM-DD]: Array<Session> }, Session: {label,start,end?}
+    logs: 'kuro.logs', // { [YYYY-MM-DD]: Array<Session> }, Session: {label,start,end?}
+    completionPopupEnabled: 'kuro.completionPopupEnabled'
   };
 
   const OBSERVER_CFG = { childList: true, subtree: true };
   const IDLE_LABEL = 'Idle';
+  const COMPLETION_POPUP_DEFAULT = true;
+  const COMPLETION_POPUP_DURATION_MS = 3000;
+  let completionPopupEnabled = COMPLETION_POPUP_DEFAULT;
+  let completionPopupTimer = null;
+  let completionPopupEl = null;
+  let completionPopupListenerAttached = false;
 
   // ---------- UI queue (serialize stop/start flows) ----------
   const uiQueue = (() => {
@@ -54,6 +61,45 @@
       return new Promise(resolve => chrome.storage.local.set(obj, resolve));
     }
   };
+
+  // ---------- Settings ----------
+  function normalizeCompletionPopupValue(value) {
+    return value !== false;
+  }
+
+  async function readCompletionPopupPreference() {
+    try {
+      const data = await store.get([STORAGE_KEYS.completionPopupEnabled]);
+      if (!(STORAGE_KEYS.completionPopupEnabled in data)) {
+        return COMPLETION_POPUP_DEFAULT;
+      }
+      return normalizeCompletionPopupValue(data[STORAGE_KEYS.completionPopupEnabled]);
+    } catch {
+      return COMPLETION_POPUP_DEFAULT;
+    }
+  }
+
+  async function initCompletionPopupPreference() {
+    completionPopupEnabled = await readCompletionPopupPreference();
+    if (
+      !completionPopupListenerAttached &&
+      typeof chrome !== 'undefined' &&
+      chrome.storage?.onChanged
+    ) {
+      chrome.storage.onChanged.addListener((changes, area) => {
+        if (area !== 'local') return;
+        if (Object.prototype.hasOwnProperty.call(changes, STORAGE_KEYS.completionPopupEnabled)) {
+          completionPopupEnabled = normalizeCompletionPopupValue(
+            changes[STORAGE_KEYS.completionPopupEnabled].newValue
+          );
+          if (!completionPopupEnabled && completionPopupEl) {
+            completionPopupEl.classList.remove('is-visible');
+          }
+        }
+      });
+      completionPopupListenerAttached = true;
+    }
+  }
 
   // ---------- Time / format helpers ----------
   const pad2 = (n) => String(n).padStart(2, '0');
@@ -181,6 +227,30 @@
     return `${m}m`;
   }
 
+  function showCompletionPopup(taskName, minsWorked) {
+    if (!completionPopupEnabled) return;
+    const safeName = (taskName || 'task').trim() || 'task';
+    const totalMins = Math.max(0, Math.round(minsWorked));
+    const hours = Math.floor(totalMins / 60);
+    const minutes = totalMins % 60;
+    const message = `Worked on a task ${safeName} for ${hours} hours ${minutes} minutes`;
+
+    if (!completionPopupEl || !completionPopupEl.isConnected) {
+      completionPopupEl = document.createElement('div');
+      completionPopupEl.className = 'kuro-task-finish-popup';
+      document.body.appendChild(completionPopupEl);
+    }
+
+    completionPopupEl.textContent = message;
+    completionPopupEl.classList.add('is-visible');
+
+    if (completionPopupTimer) clearTimeout(completionPopupTimer);
+    completionPopupTimer = setTimeout(() => {
+      if (!completionPopupEl) return;
+      completionPopupEl.classList.remove('is-visible');
+    }, COMPLETION_POPUP_DURATION_MS);
+  }
+
   async function onWorkChipClick(ev, taskBody) {
     ev.preventDefault();
     ev.stopPropagation();
@@ -215,6 +285,7 @@
 
     // Switch chronolog session to this task
     const { baseTitle } = splitTitleAndTrackedMins(getTitleText(titleEl));
+    taskBody.setAttribute('data-task-label', baseTitle);
     await switchSession(baseTitle);
 
     // UI mark
@@ -229,6 +300,7 @@
       if (!skipIdle) { await switchSession(IDLE_LABEL); }
       taskBody.classList.remove('is-working');
       taskBody.removeAttribute('data-work-start');
+      taskBody.removeAttribute('data-task-label');
       return;
     }
 
@@ -263,6 +335,7 @@
       rawTitle,
       newTitle
     };
+    const popupLabel = baseTitle || rawTitle || 'task';
 
     // Try to rename via UI with scoped selectors and identity checks; fallback to visual text only.
     try {
@@ -272,12 +345,15 @@
       try { alert(`[mstodo-ext] Could not safely rename "${rawTitle}".\n\nPlease rename manually to:\n${newTitle}`); } catch {}
     }
 
+    showCompletionPopup(popupLabel, mins);
+
     // Switch to Idle session
     if (!skipIdle) { await switchSession(IDLE_LABEL); }
 
     // UI unmark
     taskBody.classList.remove('is-working');
     taskBody.removeAttribute('data-work-start');
+    taskBody.removeAttribute('data-task-label');
   }
 
   async function renameTaskThroughUI(ctx) {
@@ -853,6 +929,7 @@
   async function boot() {
     // Chronolog: ensure there's always an open session (Idle if none).
     await ensureOpenSession(IDLE_LABEL);
+    try { await initCompletionPopupPreference(); } catch (e) { console.error('Popup preference init failed', e); }
 
     try { setupWorkChips(); } catch (e) { console.error('WorkChip init failed', e); }
     try { setupHideFutureTasksToggle(); } catch (e) { console.error('Hide-future toggle init failed', e); }

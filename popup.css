@@ -43,3 +43,47 @@ button, a#download {
 button:hover, a#download:hover { background-color: #eee; }
 footer { margin-top: 12px; display: flex; justify-content: flex-end; }
 
+.tab-nav {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+}
+.tab-button {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  background-color: #f6f6f6;
+  cursor: pointer;
+  font-weight: 600;
+}
+.tab-button.active {
+  background-color: #111111;
+  color: #ffffff;
+  border-color: #111111;
+}
+.tab-panel {
+  display: none;
+}
+.tab-panel.active {
+  display: block;
+}
+.setting-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 20px 0 4px;
+  font-size: 14px;
+}
+.setting-row input[type="checkbox"] {
+  margin-top: 4px;
+}
+.setting-row span {
+  flex: 1;
+}
+.setting-hint {
+  margin: 0 0 0 26px;
+  color: #666666;
+  font-size: 13px;
+  line-height: 1.3;
+}

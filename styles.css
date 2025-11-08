@@ -96,3 +96,27 @@ html.hide-recurring-tasks .taskItem.kuro-recurring-task {
   }
   .kuro-filter-menu { display: block; }
 }
+
+/* Task completion popup */
+.kuro-task-finish-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(18, 18, 18, 0.92);
+  color: #fff;
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+  padding: 18px 28px;
+  font-size: 16px;
+  line-height: 1.4;
+  text-align: center;
+  z-index: 2147483647;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease-out;
+  max-width: 80vw;
+}
+.kuro-task-finish-popup.is-visible {
+  opacity: 1;
+}
