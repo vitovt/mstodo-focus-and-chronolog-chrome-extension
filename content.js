@@ -267,9 +267,20 @@
     if (!completionPopupEnabled) return;
     const safeName = (taskName || 'task').trim() || 'task';
     const totalMins = Math.max(0, Math.round(minsWorked));
-    const hours = Math.floor(totalMins / 60);
-    const minutes = totalMins % 60;
-    const message = `Worked on a task ${safeName} for ${hours} hours ${minutes} minutes`;
+    let durationText = '';
+    if (totalMins < 60) {
+      const minuteLabel = totalMins === 1 ? 'minute' : 'minutes';
+      durationText = `${totalMins} ${minuteLabel}`;
+    } else {
+      const hours = Math.floor(totalMins / 60);
+      const minutes = totalMins % 60;
+      const hourLabel = hours === 1 ? 'hour' : 'hours';
+      const minuteLabel = minutes === 1 ? 'minute' : 'minutes';
+      durationText = minutes > 0
+        ? `${hours} ${hourLabel} ${minutes} ${minuteLabel}`
+        : `${hours} ${hourLabel}`;
+    }
+    const message = `Worked on a task:\n${safeName}\nfor ${durationText}`;
 
     if (!completionPopupEl || !completionPopupEl.isConnected) {
       completionPopupEl = document.createElement('div');

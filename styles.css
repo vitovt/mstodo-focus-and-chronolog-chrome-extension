@@ -116,6 +116,8 @@ html.hide-recurring-tasks .taskItem.kuro-recurring-task {
   pointer-events: none;
   transition: opacity 160ms ease-out;
   max-width: 80vw;
+  white-space: pre-line;
+  border: 2px solid lightblue
 }
 .kuro-task-finish-popup.is-visible {
   opacity: 1;
