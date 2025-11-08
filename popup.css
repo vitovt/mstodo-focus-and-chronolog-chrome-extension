@@ -1,7 +1,15 @@
+html, body {
+  margin: 0;
+  padding: 12px;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background-color: #ffffff;
+  color: #111111;
+}
 body {
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  margin: 12px;
   width: 420px;
+  max-width: 100vw;
+  box-sizing: border-box;
 }
 h1 { font-size: 16px; margin: 0 0 4px; }
 h2 { font-size: 14px; margin: 16px 0 8px; }
@@ -15,6 +23,8 @@ header small { color: #666; }
   box-sizing: border-box;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12px;
+  background-color: #ffffff;
+  color: #111111;
 }
 .actions {
   display: flex;
@@ -27,9 +37,9 @@ button, a#download {
   border: 1px solid #ccc;
   text-decoration: none;
   color: #111;
-  background: #f6f6f6;
+  background-color: #f6f6f6;
   cursor: pointer;
 }
-button:hover, a#download:hover { background: #eee; }
+button:hover, a#download:hover { background-color: #eee; }
 footer { margin-top: 12px; display: flex; justify-content: flex-end; }
 
