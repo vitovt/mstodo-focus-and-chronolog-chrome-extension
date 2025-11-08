@@ -253,6 +253,16 @@
     return `${m}m`;
   }
 
+  function hideCompletionPopup() {
+    if (completionPopupTimer) {
+      clearTimeout(completionPopupTimer);
+      completionPopupTimer = null;
+    }
+    if (completionPopupEl) {
+      completionPopupEl.classList.remove('is-visible');
+    }
+  }
+
   function showCompletionPopup(taskName, minsWorked) {
     if (!completionPopupEnabled) return;
     const safeName = (taskName || 'task').trim() || 'task';
@@ -264,6 +274,9 @@
     if (!completionPopupEl || !completionPopupEl.isConnected) {
       completionPopupEl = document.createElement('div');
       completionPopupEl.className = 'kuro-task-finish-popup';
+      completionPopupEl.addEventListener('click', () => {
+        hideCompletionPopup();
+      });
       document.body.appendChild(completionPopupEl);
     }
 
@@ -273,8 +286,7 @@
     if (completionPopupTimer) clearTimeout(completionPopupTimer);
     const hideDelay = Math.max(0, Math.round(completionPopupDurationMs));
     completionPopupTimer = setTimeout(() => {
-      if (!completionPopupEl) return;
-      completionPopupEl.classList.remove('is-visible');
+      hideCompletionPopup();
     }, hideDelay);
   }
 

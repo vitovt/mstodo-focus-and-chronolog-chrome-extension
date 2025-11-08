@@ -119,4 +119,6 @@ html.hide-recurring-tasks .taskItem.kuro-recurring-task {
 }
 .kuro-task-finish-popup.is-visible {
   opacity: 1;
+  pointer-events: auto;
+  cursor: pointer;
 }
