@@ -78,6 +78,13 @@ footer { margin-top: 12px; display: flex; justify-content: flex-end; }
 .setting-row input[type="checkbox"] {
   margin-top: 4px;
 }
+.setting-row input[type="number"] {
+  width: 80px;
+  padding: 4px 6px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+}
 .setting-row span {
   flex: 1;
 }

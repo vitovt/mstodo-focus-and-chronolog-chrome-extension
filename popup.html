@@ -46,7 +46,12 @@
           Show completion popup
         </span>
       </label>
-      <p class="setting-hint">Displays “Worked on a task …” in the middle of Microsoft To Do for 3 seconds after you stop a task.</p>
+      <p class="setting-hint">Displays “Worked on a task …” in the middle of Microsoft To Do after you stop a task. Duration is configurable below.</p>
+      <label class="setting-row" for="completion-popup-timeout">
+        <span>Popup timeout (seconds)</span>
+        <input type="number" id="completion-popup-timeout" min="1" max="600" step="1" inputmode="numeric">
+      </label>
+      <p class="setting-hint">Choose how long the popup stays visible. Default is 3 seconds.</p>
     </section>
   </main>
 

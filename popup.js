@@ -1,6 +1,8 @@
 const STORAGE_KEY = 'kuro.logs';
 const COMPLETION_POPUP_KEY = 'kuro.completionPopupEnabled';
 const COMPLETION_POPUP_DEFAULT = true;
+const COMPLETION_POPUP_TIMEOUT_KEY = 'kuro.completionPopupDurationMs';
+const COMPLETION_POPUP_TIMEOUT_DEFAULT_MS = 3000;
 const IDLE_LABEL = 'Idle';
 const COL_START_W = 5;
 const COL_NAME_W = 37;
@@ -58,6 +60,14 @@ function storageSet(obj) {
 
 function normalizeCompletionPopupSetting(value) {
   return value !== false;
+}
+
+function normalizeCompletionPopupTimeoutMs(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num <= 0) {
+    return COMPLETION_POPUP_TIMEOUT_DEFAULT_MS;
+  }
+  return num;
 }
 
 async function resetTodayPreserveIdle() {
@@ -130,6 +140,33 @@ async function initCompletionPopupToggle() {
   });
 }
 
+async function initCompletionPopupTimeoutInput() {
+  const input = document.getElementById('completion-popup-timeout');
+  if (!input) return;
+  const data = await storageGet([COMPLETION_POPUP_TIMEOUT_KEY]);
+  const storedValue = data[COMPLETION_POPUP_TIMEOUT_KEY];
+  let currentMs = storedValue === undefined
+    ? COMPLETION_POPUP_TIMEOUT_DEFAULT_MS
+    : normalizeCompletionPopupTimeoutMs(storedValue);
+  input.value = String(Math.round(currentMs / 1000));
+
+  const persist = async (msValue) => {
+    currentMs = msValue;
+    input.value = String(Math.max(1, Math.round(msValue / 1000)));
+    await storageSet({ [COMPLETION_POPUP_TIMEOUT_KEY]: msValue });
+  };
+
+  input.addEventListener('change', async () => {
+    const secs = Number(input.value);
+    if (!Number.isFinite(secs) || secs <= 0) {
+      input.value = String(Math.round(currentMs / 1000));
+      return;
+    }
+    const msValue = normalizeCompletionPopupTimeoutMs(Math.round(secs * 1000));
+    await persist(msValue);
+  });
+}
+
 function initTabs() {
   const buttons = document.querySelectorAll('.tab-button');
   const panels = document.querySelectorAll('.tab-panel');
@@ -193,5 +230,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupCopyButton();
   setupResetButton();
   await initCompletionPopupToggle();
+  await initCompletionPopupTimeoutInput();
   await load();
 });

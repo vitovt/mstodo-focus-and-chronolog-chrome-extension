@@ -13,14 +13,16 @@
     hideFuture: 'kuro.hideFuture',
     hideRecurring: 'kuro.hideRecurring',
     logs: 'kuro.logs', // { [YYYY-MM-DD]: Array<Session> }, Session: {label,start,end?}
-    completionPopupEnabled: 'kuro.completionPopupEnabled'
+    completionPopupEnabled: 'kuro.completionPopupEnabled',
+    completionPopupDurationMs: 'kuro.completionPopupDurationMs'
   };
 
   const OBSERVER_CFG = { childList: true, subtree: true };
   const IDLE_LABEL = 'Idle';
-  const COMPLETION_POPUP_DEFAULT = true;
-  const COMPLETION_POPUP_DURATION_MS = 3000;
-  let completionPopupEnabled = COMPLETION_POPUP_DEFAULT;
+  const COMPLETION_POPUP_DEFAULT_ENABLED = true;
+  const COMPLETION_POPUP_DEFAULT_DURATION_MS = 3000;
+  let completionPopupEnabled = COMPLETION_POPUP_DEFAULT_ENABLED;
+  let completionPopupDurationMs = COMPLETION_POPUP_DEFAULT_DURATION_MS;
   let completionPopupTimer = null;
   let completionPopupEl = null;
   let completionPopupListenerAttached = false;
@@ -67,20 +69,39 @@
     return value !== false;
   }
 
-  async function readCompletionPopupPreference() {
+  function normalizeCompletionPopupDurationMs(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num) || num < 0) {
+      return COMPLETION_POPUP_DEFAULT_DURATION_MS;
+    }
+    return num;
+  }
+
+  async function readCompletionPopupSettings() {
     try {
-      const data = await store.get([STORAGE_KEYS.completionPopupEnabled]);
-      if (!(STORAGE_KEYS.completionPopupEnabled in data)) {
-        return COMPLETION_POPUP_DEFAULT;
-      }
-      return normalizeCompletionPopupValue(data[STORAGE_KEYS.completionPopupEnabled]);
+      const data = await store.get([
+        STORAGE_KEYS.completionPopupEnabled,
+        STORAGE_KEYS.completionPopupDurationMs
+      ]);
+      const enabled = (STORAGE_KEYS.completionPopupEnabled in data)
+        ? normalizeCompletionPopupValue(data[STORAGE_KEYS.completionPopupEnabled])
+        : COMPLETION_POPUP_DEFAULT_ENABLED;
+      const durationMs = (STORAGE_KEYS.completionPopupDurationMs in data)
+        ? normalizeCompletionPopupDurationMs(data[STORAGE_KEYS.completionPopupDurationMs])
+        : COMPLETION_POPUP_DEFAULT_DURATION_MS;
+      return { enabled, durationMs };
     } catch {
-      return COMPLETION_POPUP_DEFAULT;
+      return {
+        enabled: COMPLETION_POPUP_DEFAULT_ENABLED,
+        durationMs: COMPLETION_POPUP_DEFAULT_DURATION_MS
+      };
     }
   }
 
-  async function initCompletionPopupPreference() {
-    completionPopupEnabled = await readCompletionPopupPreference();
+  async function initCompletionPopupSettings() {
+    const settings = await readCompletionPopupSettings();
+    completionPopupEnabled = settings.enabled;
+    completionPopupDurationMs = settings.durationMs;
     if (
       !completionPopupListenerAttached &&
       typeof chrome !== 'undefined' &&
@@ -95,6 +116,11 @@
           if (!completionPopupEnabled && completionPopupEl) {
             completionPopupEl.classList.remove('is-visible');
           }
+        }
+        if (Object.prototype.hasOwnProperty.call(changes, STORAGE_KEYS.completionPopupDurationMs)) {
+          completionPopupDurationMs = normalizeCompletionPopupDurationMs(
+            changes[STORAGE_KEYS.completionPopupDurationMs].newValue
+          );
         }
       });
       completionPopupListenerAttached = true;
@@ -245,10 +271,11 @@
     completionPopupEl.classList.add('is-visible');
 
     if (completionPopupTimer) clearTimeout(completionPopupTimer);
+    const hideDelay = Math.max(0, Math.round(completionPopupDurationMs));
     completionPopupTimer = setTimeout(() => {
       if (!completionPopupEl) return;
       completionPopupEl.classList.remove('is-visible');
-    }, COMPLETION_POPUP_DURATION_MS);
+    }, hideDelay);
   }
 
   async function onWorkChipClick(ev, taskBody) {
@@ -929,7 +956,7 @@
   async function boot() {
     // Chronolog: ensure there's always an open session (Idle if none).
     await ensureOpenSession(IDLE_LABEL);
-    try { await initCompletionPopupPreference(); } catch (e) { console.error('Popup preference init failed', e); }
+    try { await initCompletionPopupSettings(); } catch (e) { console.error('Popup preference init failed', e); }
 
     try { setupWorkChips(); } catch (e) { console.error('WorkChip init failed', e); }
     try { setupHideFutureTasksToggle(); } catch (e) { console.error('Hide-future toggle init failed', e); }
