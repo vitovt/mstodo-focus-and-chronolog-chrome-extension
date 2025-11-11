@@ -63,6 +63,18 @@ https://chromewebstore.google.com/detail/ms-todo-focus-chronolog/fgkkmokgpilcfag
   - **Time spent** (end – start)
 - Use **Copy** or **Download .txt** in the popup.
 
+### Mobile-friendly
+ - All design improvements work without issues on mobile (tested in Edge).
+
+### Task completion popup & Settings
+- When you **stop** or **switch** a task, a small task completion popup appears in the middle of the screen showing how long you worked on that task (for example: “Worked on a task … for 25m”).
+- By default, the popup is shown for **3 seconds**.
+- The popup is styled for both **desktop and mobile**, and the main extension window background is adjusted for mobile use.
+- You can close the popup immediately by **clicking on it**.
+- In the **Settings** tab you can:
+  - Disable the task completion popup entirely.
+  - Adjust the **popup display duration** (how long it stays visible after you stop/switch a task).
+
 ---
 
 ## Permissions

@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.1.4 - 2025-11-01
+ - Fix main extension window background on mobile
+ - Add a task completion popup with work duration info
+   for 3 seconds (by default) after you stop or switch a task.
+   Displays “Worked on a task …” in the middle of the screen
+   - add styling for desktop and mobile
+   - add Settings tab and an option to disable the popup
+   - add duration option on the Settings tab
+   - add ability to close it by clicking on it
+
 ## v1.1.3 - 2025-11-01
 - Add: Hide/Show recurring tasks toggle.
 - Add: Mobile-friendly Filters menu that groups “Hide Future” and “Hide Recurring”.
